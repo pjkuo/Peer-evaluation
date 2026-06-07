@@ -3,63 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>期末互評系統｜純前端版・修正雜亂顯示</title>
+    <title>即時互評系統｜Firebase 跨設備版</title>
+    <!-- Firebase 9+ SDK -->
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+            }
+        }
+    </script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, 'Segoe UI', sans-serif; }
         body { background: #f0f7ff; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; }
         .header { background: #1e4663; color: white; padding: 1rem; border-radius: 24px; text-align: center; margin-bottom: 24px; }
-        .sub { color: #2c5a6e; border-left: 4px solid #289672; padding-left: 16px; margin: 8px 0 20px; font-size: 0.9rem; }
         .role-switch { display: flex; justify-content: center; gap: 16px; margin-bottom: 24px; }
-        .role-btn { background: white; border: 2px solid #1e4663; padding: 8px 24px; border-radius: 40px; font-weight: bold; cursor: pointer; color: #1e4663; }
+        .role-btn { background: white; border: 2px solid #1e4663; padding: 8px 24px; border-radius: 40px; font-weight: bold; cursor: pointer; }
         .role-btn.active { background: #1e4663; color: white; }
         .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-bottom: 24px; }
         .tab { background: white; border: none; padding: 8px 20px; border-radius: 40px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .tab.active { background: #1e4663; color: white; }
         .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 22px; margin-bottom: 40px; }
         .card { background: white; border-radius: 24px; padding: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-top: 5px solid #2c7da0; }
-        .group-name { font-weight: 700; font-size: 1.2rem; color: #1e4a3b; margin-bottom: 4px; }
-        .group-topic { font-size: 0.75rem; background: #eef3f0; display: inline-block; padding: 2px 10px; border-radius: 20px; margin-top: 4px; margin-bottom: 12px; }
-        .stats { display: flex; justify-content: space-between; background: #f5faf8; padding: 8px 12px; border-radius: 16px; margin-bottom: 16px; font-size: 0.85rem; }
+        .group-name { font-weight: 700; font-size: 1.2rem; color: #1e4a3b; }
+        .group-topic { font-size: 0.75rem; background: #eef3f0; display: inline-block; padding: 2px 10px; border-radius: 20px; margin: 6px 0 12px; }
+        .stats { display: flex; justify-content: space-between; background: #f5faf8; padding: 8px 12px; border-radius: 16px; margin-bottom: 16px; }
         .avg { font-weight: 700; font-size: 1.3rem; color: #1e6f5c; }
-        .avg small { font-size: 0.7rem; font-weight: normal; }
         .score-row { display: flex; gap: 16px; margin: 12px 0; flex-wrap: wrap; }
-        .score-item { flex: 1; min-width: 120px; }
-        .score-item label { display: block; font-weight: 600; color: #2c7da0; font-size: 0.8rem; margin-bottom: 4px; }
+        .score-item { flex: 1; }
+        .score-item label { display: block; font-weight: 600; color: #2c7da0; font-size: 0.8rem; }
         .score-item input { width: 100%; padding: 6px; border-radius: 30px; border: 1px solid #cddfd7; text-align: center; }
-        .bonus-area { margin: 12px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .bonus-area select { padding: 4px 12px; border-radius: 20px; }
-        .btn-submit { background: #289672; color: white; border: none; width: 100%; padding: 8px; border-radius: 40px; margin-top: 8px; cursor: pointer; font-weight: bold; }
+        .bonus-area { margin: 12px 0; display: flex; align-items: center; gap: 12px; }
+        .btn-submit { background: #289672; color: white; border: none; width: 100%; padding: 8px; border-radius: 40px; cursor: pointer; font-weight: bold; }
         .btn-submit:disabled { background: #bdd3cb; cursor: not-allowed; }
-        .btn-submit.saved { background: #2ecc71; }
         .dashboard { background: white; border-radius: 24px; padding: 20px; margin-top: 20px; display: none; }
-        .rank-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .rank-table th, .rank-table td { border: 1px solid #cde0d9; padding: 8px; text-align: center; }
+        .rank-table { width: 100%; border-collapse: collapse; }
+        .rank-table th, .rank-table td { border: 1px solid #cde0d9; padding: 8px; text-align: center; font-size: 0.85rem; }
         .rank-table th { background: #eef3f0; }
         .top3 { background: #fff8e7; font-weight: bold; }
         .teacher-score-input { width: 70px; padding: 4px; border-radius: 20px; border: 1px solid #cbd5e1; text-align: center; }
-        .student-id-area { background: white; border-radius: 20px; padding: 12px 20px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-        .footnote { text-align: center; margin-top: 32px; color: #6d8f82; font-size: 0.7rem; }
+        .status { background: white; border-radius: 30px; padding: 4px 12px; display: inline-block; margin-left: 12px; font-size: 0.8rem; }
         .toolbar { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 20px; }
-        .btn-tool { background: white; border: 1px solid #cbdde6; padding: 6px 16px; border-radius: 30px; cursor: pointer; }
-        .btn-export { background: #1e6f5c; color: white; border: none; }
-        .btn-reset { background: #fff2f0; color: #c23b22; border-color: #ffc5b9; }
-        @media (max-width: 700px) { .score-row { flex-direction: column; gap: 12px; } }
+        button.small { background: white; border: 1px solid #cbdde6; padding: 6px 16px; border-radius: 30px; cursor: pointer; }
+        .footnote { text-align: center; margin-top: 32px; color: #6d8f82; font-size: 0.7rem; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h2>📊 運算思維期末報告 · 匿名互評系統</h2>
-        <p>書面報告0~5 + 上台報告0~5 + 加分0/0.5 = 滿分10.5 | 學生互評80% + 教師評分20%</p>
+        <h2>📡 即時互評系統（跨設備同步）</h2>
+        <p>學生評分（書面0~5 + 上台0~5 + 加分0/0.5）→ 即時雲端同步 → 教師儀表板自動更新</p>
     </div>
 
-    <div class="student-id-area">
+    <div style="background: white; border-radius: 20px; padding: 12px 20px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
         <label>🔑 你的學號：</label>
         <input type="text" id="studentIdInput" style="flex:1; padding:6px 12px; border-radius:30px; border:1px solid #ccc;">
         <button id="setStudentIdBtn" style="background:#1e4663; color:white; border:none; border-radius:30px; padding:6px 16px;">設定</button>
-        <span id="currentStudentDisplay" style="font-size:0.8rem; color:#1e6f5c;"></span>
-        <span id="statusMsg" style="font-size:0.8rem; color:#e67e22;"></span>
+        <span id="currentStudentDisplay" class="status"></span>
+        <span id="loginStatus" class="status" style="background:#fff9e0;">⏳ 連線中...</span>
     </div>
 
     <div class="role-switch">
@@ -71,27 +74,44 @@
     <div id="studentPanel">
         <div class="tabs" id="deptTabs"></div>
         <div class="toolbar">
-            <button id="refreshBtn" class="btn-tool">🔄 重新整理</button>
-            <button id="exportBtn" class="btn-tool btn-export">📎 匯出CSV</button>
-            <button id="resetAllBtn" class="btn-tool btn-reset">🗑️ 清除所有評分</button>
+            <button id="refreshBtn" class="small">🔄 重新整理</button>
         </div>
         <div id="cardsContainer" class="cards-grid">載入中...</div>
     </div>
 
     <!-- 教師儀表板 -->
     <div id="dashboardPanel" class="dashboard">
-        <h3>🏆 加權總分排名（學生互評80% + 教師評分20%）</h3>
-        <p style="margin: 8px 0;">💡 教師可直接修改「教師評分」欄位，系統自動儲存並更新排名。</p>
+        <h3>🏆 加權總分排名（學生80% + 教師20%）</h3>
+        <p style="margin: 8px 0;">💡 教師可直接修改「教師評分」欄位，自動儲存並更新排名。</p>
         <div id="rankTableContainer"></div>
+        <button id="exportCsvBtn" class="small" style="margin-top: 16px;">📎 匯出 CSV 報表</button>
     </div>
     <div class="footnote">
         ✅ 書面報告 = 問題定義(1)+IPO(2)+技術實作(2) | 上台報告 = AI創新(1)+成果展示(3)+問答(1)<br>
-        ✅ 所有資料僅存於本瀏覽器，不同學號可共用同一設備分別評分。
+        ✅ 所有評分即時雲端同步，不同設備皆可同時使用。每人每組僅可評分一次。
     </div>
 </div>
 
-<script>
-    // ---------- 完整小組資料 ----------
+<script type="module">
+    import { initializeApp } from "firebase/app";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+    import { getFirestore, collection, doc, setDoc, onSnapshot, query, where, getDocs } from "firebase/firestore";
+
+    // Firebase 設定（使用者提供的）
+    const firebaseConfig = {
+        apiKey: "AIzaSyC6sUgSVvcR6KxAVjrmQkY5_94wmKpL3PE",
+        authDomain: "peer-review-live.firebaseapp.com",
+        projectId: "peer-review-live",
+        storageBucket: "peer-review-live.firebasestorage.app",
+        messagingSenderId: "756714693010",
+        appId: "1:756714693010:web:b9458116b32626f6f0614b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // ---------- 小組資料 ----------
     const groupsData = [
         { dept: "環工1A", id: "1", title: "空氣污染檢測" }, { dept: "環工1A", id: "2", title: "空汙科技執法" },
         { dept: "環工1A", id: "3", title: "廢棄物管理與循環經濟" }, { dept: "環工1A", id: "4", title: "室內環境空汙檢測模擬器" },
@@ -114,94 +134,125 @@
     ];
 
     let currentDept = "環工1A";
-    let currentStudentId = localStorage.getItem('student_id') || "";
-    let studentScores = {};    // 格式: { "dept_id": { written, oral, bonus } }
-    let teacherScores = {};    // 格式: { "dept_id": score }
+    let currentStudentId = localStorage.getItem("student_display_id") || "";
+    let currentUser = null;
+    let authReady = false;
+    let ratingsUnsubscribe = null;
+    let teacherScoresUnsubscribe = null;
 
-    // localStorage 鍵名
-    const STORAGE_STUDENT_PREFIX = "peer_student_";
-    const STORAGE_TEACHER = "peer_teacher";
+    // 暫存 Firestore 資料
+    let allRatings = [];       // 每筆 { userId, dept, groupId, totalScore }
+    let teacherScores = new Map(); // key: "dept_groupId" -> score
 
-    // 初始化載入資料
-    function loadData() {
-        // 載入教師評分
-        const teacherRaw = localStorage.getItem(STORAGE_TEACHER);
-        if (teacherRaw) teacherScores = JSON.parse(teacherRaw);
-        else teacherScores = {};
-        // 載入當前學生的評分
-        if (currentStudentId) {
-            const key = STORAGE_STUDENT_PREFIX + currentStudentId;
-            const raw = localStorage.getItem(key);
-            if (raw) studentScores = JSON.parse(raw);
-            else studentScores = {};
-        } else {
-            studentScores = {};
+    // DOM 元素
+    const studentPanel = document.getElementById("studentPanel");
+    const dashboardPanel = document.getElementById("dashboardPanel");
+    const deptTabsDiv = document.getElementById("deptTabs");
+    const cardsContainer = document.getElementById("cardsContainer");
+    const rankContainer = document.getElementById("rankTableContainer");
+    const loginStatusSpan = document.getElementById("loginStatus");
+    const currentStudentDisplay = document.getElementById("currentStudentDisplay");
+
+    // 輔助函數
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m]));
+    }
+
+    // 計算某組平均分與人數
+    function getGroupStats(dept, groupId) {
+        const filtered = allRatings.filter(r => r.dept === dept && r.groupId === groupId);
+        if (filtered.length === 0) return { avg: null, count: 0 };
+        const sum = filtered.reduce((a, b) => a + b.totalScore, 0);
+        return { avg: sum / filtered.length, count: filtered.length };
+    }
+
+    // 檢查目前學生是否已對該組評分
+    function hasUserVoted(dept, groupId) {
+        if (!currentUser) return false;
+        return allRatings.some(r => r.userId === currentUser.uid && r.dept === dept && r.groupId === groupId);
+    }
+
+    // 提交評分到 Firestore
+    async function submitScore(dept, groupId, written, oral, bonus) {
+        if (!authReady || !currentUser) {
+            alert("系統尚未連線，請稍後再試。");
+            return false;
         }
-    }
-
-    function saveStudentScores() {
-        if (!currentStudentId) return;
-        const key = STORAGE_STUDENT_PREFIX + currentStudentId;
-        localStorage.setItem(key, JSON.stringify(studentScores));
-    }
-
-    function saveTeacherScores() {
-        localStorage.setItem(STORAGE_TEACHER, JSON.stringify(teacherScores));
-    }
-
-    // 取得某組學生平均分（從所有學生的評分計算，但因純前端僅有目前設備的學生評分，若要跨設備需後端。此處為單設備情境，但支援多學生識別）
-    // 為了讓教師儀表板能反映所有學生的評分，必須遍歷 localStorage 中所有學生的評分記錄。
-    function getAllStudentScores() {
-        let allScores = {}; // { "dept_id": [totalScore,...] }
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith(STORAGE_STUDENT_PREFIX)) {
-                const data = JSON.parse(localStorage.getItem(key));
-                for (const [groupId, val] of Object.entries(data)) {
-                    const total = val.written + val.oral + val.bonus;
-                    if (!allScores[groupId]) allScores[groupId] = [];
-                    allScores[groupId].push(total);
-                }
-            }
+        if (hasUserVoted(dept, groupId)) {
+            alert("你已經對這個小組評過分了！每人每組限一次。");
+            return false;
         }
-        return allScores;
-    }
-
-    function getGroupStats(groupId) {
-        const allScores = getAllStudentScores();
-        const scores = allScores[groupId] || [];
-        if (scores.length === 0) return { avg: null, count: 0 };
-        const sum = scores.reduce((a,b) => a+b, 0);
-        return { avg: sum / scores.length, count: scores.length };
-    }
-
-    function hasCurrentStudentVoted(groupId) {
-        return !!studentScores[groupId];
-    }
-
-    // 提交學生評分
-    function submitScore(dept, groupId, written, oral, bonus) {
         const total = written + oral + bonus;
-        studentScores[`${dept}_${groupId}`] = { written, oral, bonus, total };
-        saveStudentScores();
-        alert(`✅ 第 ${groupId} 組評分已送出！`);
-        renderStudentCards();
-        renderDashboard();
+        const docId = `${currentUser.uid}_${dept}_${groupId}`;
+        try {
+            await setDoc(doc(db, "ratings", docId), {
+                userId: currentUser.uid,
+                dept: dept,
+                groupId: groupId,
+                written: written,
+                oral: oral,
+                bonus: bonus,
+                totalScore: total,
+                timestamp: new Date()
+            });
+            alert("✅ 評分已送出！教師儀表板會立即更新。");
+            return true;
+        } catch (err) {
+            console.error(err);
+            alert("送出失敗：" + err.message);
+            return false;
+        }
     }
 
-    // 教師修改評分
-    function setTeacherScore(dept, groupId, score) {
-        const key = `${dept}_${groupId}`;
-        teacherScores[key] = score;
-        saveTeacherScores();
-        renderDashboard();
+    // 儲存教師評分
+    async function saveTeacherScore(dept, groupId, score) {
+        const docId = `teacher_${dept}_${groupId}`;
+        try {
+            await setDoc(doc(db, "teacherScores", docId), {
+                dept: dept,
+                groupId: groupId,
+                score: score,
+                timestamp: new Date()
+            }, { merge: true });
+        } catch (err) {
+            console.error("儲存教師評分失敗", err);
+        }
     }
 
-    // 渲染科系頁籤
+    // 監聽 Firestore 資料變化
+    function listenFirestore() {
+        if (ratingsUnsubscribe) ratingsUnsubscribe();
+        ratingsUnsubscribe = onSnapshot(collection(db, "ratings"), (snapshot) => {
+            allRatings = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                allRatings.push({
+                    userId: data.userId,
+                    dept: data.dept,
+                    groupId: data.groupId,
+                    totalScore: data.totalScore
+                });
+            });
+            // 更新 UI
+            if (studentPanel.style.display !== "none") renderStudentCards();
+            if (dashboardPanel.style.display !== "none") renderDashboard();
+        });
+
+        if (teacherScoresUnsubscribe) teacherScoresUnsubscribe();
+        teacherScoresUnsubscribe = onSnapshot(collection(db, "teacherScores"), (snapshot) => {
+            teacherScores.clear();
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                teacherScores.set(`${data.dept}_${data.groupId}`, data.score);
+            });
+            if (dashboardPanel.style.display !== "none") renderDashboard();
+        });
+    }
+
+    // 科系頁籤
     function renderDeptTabs() {
         const depts = [...new Map(groupsData.map(g => [g.dept, g.dept])).keys()];
-        const container = document.getElementById("deptTabs");
-        container.innerHTML = depts.map(d => `<button class="tab ${d === currentDept ? 'active' : ''}" data-dept="${d}">${d === '環工1A' ? '🌍' : d === '植醫1A' ? '🌱' : '🐟'} ${d}</button>`).join("");
+        deptTabsDiv.innerHTML = depts.map(d => `<button class="tab ${d === currentDept ? 'active' : ''}" data-dept="${d}">${d === '環工1A' ? '🌍' : d === '植醫1A' ? '🌱' : '🐟'} ${d}</button>`).join("");
         document.querySelectorAll("#deptTabs .tab").forEach(btn => {
             btn.addEventListener("click", () => {
                 currentDept = btn.getAttribute("data-dept");
@@ -211,74 +262,65 @@
         });
     }
 
-    // 學生卡片渲染
+    // 渲染學生卡片
     function renderStudentCards() {
-        const container = document.getElementById("cardsContainer");
         const groups = groupsData.filter(g => g.dept === currentDept);
-        container.innerHTML = groups.map(g => {
-            const groupKey = `${g.dept}_${g.id}`;
-            const voted = hasCurrentStudentVoted(groupKey);
-            const saved = studentScores[groupKey] || {};
-            const writtenVal = saved.written !== undefined ? saved.written : "";
-            const oralVal = saved.oral !== undefined ? saved.oral : "";
-            const bonusVal = saved.bonus !== undefined ? saved.bonus : 0;
+        cardsContainer.innerHTML = groups.map(g => {
+            const voted = hasUserVoted(g.dept, g.id);
             return `
-                <div class="card" data-id="${g.id}" data-dept="${g.dept}">
+                <div class="card">
                     <div class="group-name">📌 第 ${g.id} 組</div>
                     <div class="group-topic">${escapeHtml(g.title)}</div>
                     <div class="score-row">
-                        <div class="score-item"><label>📄 書面報告 (0~5)</label><input type="number" step="0.5" min="0" max="5" class="written-input" value="${writtenVal}"></div>
-                        <div class="score-item"><label>🎤 上台報告 (0~5)</label><input type="number" step="0.5" min="0" max="5" class="oral-input" value="${oralVal}"></div>
+                        <div class="score-item"><label>📄 書面報告 (0~5)</label><input type="number" step="0.5" min="0" max="5" class="written-input" value=""></div>
+                        <div class="score-item"><label>🎤 上台報告 (0~5)</label><input type="number" step="0.5" min="0" max="5" class="oral-input" value=""></div>
                     </div>
                     <div class="bonus-area">
                         <span>➕ 加分：</span>
                         <select class="bonus-select">
-                            <option value="0" ${bonusVal === 0 ? 'selected' : ''}>無加分 (0)</option>
-                            <option value="0.5" ${bonusVal === 0.5 ? 'selected' : ''}>有加分 (+0.5)</option>
+                            <option value="0">無加分 (0)</option>
+                            <option value="0.5">有加分 (+0.5)</option>
                         </select>
                     </div>
-                    <button class="btn-submit ${voted ? 'saved' : ''}" data-dept="${g.dept}" data-id="${g.id}" ${voted ? 'disabled' : ''}>${voted ? '✓ 已評分' : '📤 送出評分'}</button>
+                    <button class="btn-submit" data-dept="${g.dept}" data-id="${g.id}" ${voted ? 'disabled' : ''}>${voted ? '✓ 已評分' : '📤 送出評分'}</button>
                 </div>
             `;
         }).join("");
         // 綁定按鈕事件
         document.querySelectorAll(".btn-submit:not([disabled])").forEach(btn => {
-            btn.addEventListener("click", (e) => {
+            btn.addEventListener("click", async (e) => {
                 const card = btn.closest(".card");
-                const dept = card.getAttribute("data-dept");
-                const id = card.getAttribute("data-id");
+                const dept = btn.getAttribute("data-dept");
+                const id = btn.getAttribute("data-id");
                 const written = parseFloat(card.querySelector(".written-input").value);
                 const oral = parseFloat(card.querySelector(".oral-input").value);
                 const bonus = parseFloat(card.querySelector(".bonus-select").value);
                 if (isNaN(written) || isNaN(oral)) { alert("請填寫書面與上台分數"); return; }
                 if (written < 0 || written > 5 || oral < 0 || oral > 5) { alert("分數需在0~5之間"); return; }
-                submitScore(dept, id, written, oral, bonus);
+                await submitScore(dept, id, written, oral, bonus);
             });
         });
     }
 
-    // 儀表板渲染
+    // 教師儀表板
     function renderDashboard() {
-        const container = document.getElementById("rankTableContainer");
-        if (!container) return;
         let rows = [];
         for (let g of groupsData) {
-            const groupKey = `${g.dept}_${g.id}`;
-            const stats = getGroupStats(groupKey);
-            const teacherScore = teacherScores[groupKey] || null;
+            const stats = getGroupStats(g.dept, g.id);
+            const teacherScore = teacherScores.get(`${g.dept}_${g.id}`) || null;
             let finalScore = 0;
-            let display = false;
+            let show = false;
             if (stats.avg !== null && teacherScore !== null) {
                 finalScore = stats.avg * 0.8 + teacherScore * 0.2;
-                display = true;
+                show = true;
             } else if (stats.avg !== null) {
                 finalScore = stats.avg * 0.8;
-                display = true;
+                show = true;
             } else if (teacherScore !== null) {
                 finalScore = teacherScore * 0.2;
-                display = true;
+                show = true;
             }
-            if (display) {
+            if (show) {
                 rows.push({
                     dept: g.dept, id: g.id, title: g.title,
                     studentAvg: stats.avg !== null ? stats.avg.toFixed(2) : "無",
@@ -296,7 +338,7 @@
                 });
             }
         }
-        rows.sort((a,b) => b.finalScore - a.finalScore);
+        rows.sort((a, b) => b.finalScore - a.finalScore);
         let html = `<table class="rank-table"><thead><tr><th>排名</th><th>科系</th><th>組別</th><th>主題</th><th>學生平均分(10.5)</th><th>教師評分(0~10)</th><th>加權總分</th><th>評分人數</th></tr></thead><tbody>`;
         rows.forEach((r, idx) => {
             let topClass = idx < 3 ? 'top3' : '';
@@ -311,92 +353,67 @@
                         <td>${r.count}</td>
                       </tr>`;
         });
-        html += `</tbody></table>`;
-        container.innerHTML = html;
+        html += `</tbody>有些人`;
+        rankContainer.innerHTML = html;
+        // 綁定教師評分變更
         document.querySelectorAll(".teacher-score-input").forEach(inp => {
             inp.addEventListener("change", (e) => {
-                let dept = inp.getAttribute("data-dept");
-                let id = inp.getAttribute("data-id");
+                const dept = inp.getAttribute("data-dept");
+                const id = inp.getAttribute("data-id");
                 let val = parseFloat(inp.value);
                 if (isNaN(val)) val = null;
                 else if (val < 0) val = 0;
                 else if (val > 10) val = 10;
-                setTeacherScore(dept, id, val);
+                saveTeacherScore(dept, id, val);
             });
         });
     }
 
-    function escapeHtml(str) {
-        return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m]));
-    }
-
     // 匯出 CSV
-    function exportCSV() {
-        let allGroupsStats = [];
+    async function exportCSV() {
+        // 確保取得最新資料（可再從 Firestore 讀取一次，但直接使用 allRatings 即可）
+        let rows = [["科系","組別","主題","學生平均分","教師評分","加權總分","評分人數"]];
         for (let g of groupsData) {
-            const groupKey = `${g.dept}_${g.id}`;
-            const stats = getGroupStats(groupKey);
-            const teacherScore = teacherScores[groupKey] || null;
+            const stats = getGroupStats(g.dept, g.id);
+            const teacherScore = teacherScores.get(`${g.dept}_${g.id}`) || null;
             let finalScore = 0;
             if (stats.avg !== null && teacherScore !== null) finalScore = stats.avg * 0.8 + teacherScore * 0.2;
             else if (stats.avg !== null) finalScore = stats.avg * 0.8;
             else if (teacherScore !== null) finalScore = teacherScore * 0.2;
-            allGroupsStats.push({
-                dept: g.dept, group: g.id, topic: g.title,
-                studentAvg: stats.avg !== null ? stats.avg.toFixed(2) : "無",
-                teacherScore: teacherScore !== null ? teacherScore : "無",
-                finalScore: finalScore.toFixed(2),
-                count: stats.count
-            });
+            rows.push([
+                g.dept, `第${g.id}組`, g.title,
+                stats.avg !== null ? stats.avg.toFixed(2) : "無",
+                teacherScore !== null ? teacherScore : "無",
+                finalScore.toFixed(2),
+                stats.count
+            ]);
         }
-        allGroupsStats.sort((a,b) => parseFloat(b.finalScore) - parseFloat(a.finalScore));
-        const rows = [["科系","組別","主題","學生平均分","教師評分","加權總分","評分人數"]];
-        allGroupsStats.forEach(s => rows.push([s.dept, s.group, s.topic, s.studentAvg, s.teacherScore, s.finalScore, s.count]));
         const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
         const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "peer_review_report.csv";
+        link.download = "peer_review_live.csv";
         link.click();
         URL.revokeObjectURL(link.href);
     }
 
-    function resetAll() {
-        if (confirm("⚠️ 清除所有學生的評分及教師評分？此操作無法復原。")) {
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && (key.startsWith(STORAGE_STUDENT_PREFIX) || key === STORAGE_TEACHER)) {
-                    localStorage.removeItem(key);
-                }
-            }
-            loadData();
-            renderStudentCards();
-            renderDashboard();
-            alert("已清除所有資料");
-        }
-    }
-
+    // 設定學生顯示 ID
     function setStudentId() {
         let newId = document.getElementById("studentIdInput").value.trim();
         if (newId === "") { alert("請輸入學號"); return; }
         currentStudentId = newId;
-        localStorage.setItem("student_id", currentStudentId);
-        document.getElementById("currentStudentDisplay").innerText = `目前學生：${currentStudentId}`;
-        loadData();
-        renderStudentCards();
-        renderDashboard();
-        document.getElementById("statusMsg").innerText = "✅ 已切換學生";
-        setTimeout(() => document.getElementById("statusMsg").innerText = "", 2000);
+        localStorage.setItem("student_display_id", currentStudentId);
+        currentStudentDisplay.innerText = `學生：${currentStudentId}`;
     }
 
+    // 角色切換
     function switchRole(role) {
-        const studentPanel = document.getElementById("studentPanel");
-        const dashboardPanel = document.getElementById("dashboardPanel");
         if (role === 'student') {
             studentPanel.style.display = "block";
             dashboardPanel.style.display = "none";
             document.getElementById("studentRoleBtn").classList.add("active");
             document.getElementById("dashboardRoleBtn").classList.remove("active");
+            renderStudentCards();
         } else {
             studentPanel.style.display = "none";
             dashboardPanel.style.display = "block";
@@ -406,29 +423,44 @@
         }
     }
 
-    // 初始化
-    function init() {
-        const savedId = localStorage.getItem("student_id");
-        if (savedId) {
-            currentStudentId = savedId;
+    // 初始化 Firebase 登入
+    function initAuth() {
+        loginStatusSpan.innerText = "⏳ 連線中...";
+        signInAnonymously(auth).catch(err => {
+            console.error(err);
+            loginStatusSpan.innerText = "❌ 連線失敗，請檢查網路";
+        });
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                authReady = true;
+                loginStatusSpan.innerText = "✅ 已連線";
+                listenFirestore();
+                renderDeptTabs();
+                renderStudentCards();
+            } else {
+                authReady = false;
+                loginStatusSpan.innerText = "⚠️ 未連線，請重新整理";
+            }
+        });
+    }
+
+    // 頁面初始化
+    function initUI() {
+        if (currentStudentId) {
             document.getElementById("studentIdInput").value = currentStudentId;
-            document.getElementById("currentStudentDisplay").innerText = `目前學生：${currentStudentId}`;
+            currentStudentDisplay.innerText = `學生：${currentStudentId}`;
         }
-        loadData();
-        renderDeptTabs();
-        renderStudentCards();
-        renderDashboard();
-        // 綁定事件
         document.getElementById("setStudentIdBtn").addEventListener("click", setStudentId);
         document.getElementById("studentRoleBtn").addEventListener("click", () => switchRole("student"));
         document.getElementById("dashboardRoleBtn").addEventListener("click", () => switchRole("teacher"));
-        document.getElementById("refreshBtn").addEventListener("click", () => { renderStudentCards(); renderDashboard(); });
-        document.getElementById("exportBtn").addEventListener("click", exportCSV);
-        document.getElementById("resetAllBtn").addEventListener("click", resetAll);
+        document.getElementById("refreshBtn").addEventListener("click", () => renderStudentCards());
+        document.getElementById("exportCsvBtn").addEventListener("click", exportCSV);
         switchRole("student");
     }
 
-    init();
+    initAuth();
+    initUI();
 </script>
 </body>
 </html>
