@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>即時互評系統｜教師儀表板密碼保護</title>
-    <!-- Firebase 9+ SDK -->
     <script type="importmap">
         {
             "imports": {
@@ -93,8 +92,7 @@
     <div class="footnote">
         ✅ 書面報告 = 問題定義(1)+IPO(2)+技術實作(2) | 上台報告 = AI創新(1)+成果展示(3)+問答(1)<br>
         ✅ 所有評分即時雲端同步，不同設備皆可同時使用。每人每組僅可評分一次。<br>
-        ✅ 「強制同步」按鈕會從雲端重新載入最新資料；「清除所有評分資料」會刪除雲端全部記錄（僅教師操作）。<br>
-        ✅ 教師儀表板受密碼保護（密碼：1728）。
+        ✅ 「強制同步」按鈕會從雲端重新載入最新資料；「清除所有評分資料」會刪除雲端全部記錄（僅教師操作）。
     </div>
 </div>
 
@@ -155,7 +153,6 @@
     const loginStatusSpan = document.getElementById("loginStatus");
     const currentStudentDisplay = document.getElementById("currentStudentDisplay");
 
-    // 密碼設定
     const TEACHER_PASSWORD = "1728";
 
     function escapeHtml(str) {
@@ -370,7 +367,7 @@
                         <td>${r.count}</td>
                       </tr>`;
         });
-        html += `</tbody><table>`;
+        html += `</tbody></table>`;
         rankContainer.innerHTML = html;
         document.querySelectorAll(".teacher-score-input").forEach(inp => {
             inp.addEventListener("change", (e) => {
@@ -419,7 +416,6 @@
         currentStudentDisplay.innerText = `學生：${currentStudentId}`;
     }
 
-    // 密碼驗證切換至教師儀表板
     function switchToTeacher() {
         const pwd = prompt("請輸入教師密碼：");
         if (pwd === TEACHER_PASSWORD) {
@@ -473,7 +469,7 @@
         document.getElementById("refreshBtn").addEventListener("click", forceRefresh);
         document.getElementById("exportCsvBtn").addEventListener("click", exportCSV);
         document.getElementById("clearAllDataBtn").addEventListener("click", clearAllData);
-        switchToStudent();  // 預設學生區
+        switchToStudent();
     }
 
     initAuth();
