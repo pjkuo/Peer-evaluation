@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>即時互評系統｜Firebase 跨設備版</title>
+    <title>即時互評系統｜Firebase 跨設備版（已修正按鈕功能）</title>
     <!-- Firebase 9+ SDK -->
     <script type="importmap">
         {
@@ -47,6 +47,7 @@
         .status { background: white; border-radius: 30px; padding: 4px 12px; display: inline-block; margin-left: 12px; font-size: 0.8rem; }
         .toolbar { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 20px; }
         button.small { background: white; border: 1px solid #cbdde6; padding: 6px 16px; border-radius: 30px; cursor: pointer; }
+        .btn-danger { background: #fff2f0; color: #c23b22; border-color: #ffc5b9; }
         .footnote { text-align: center; margin-top: 32px; color: #6d8f82; font-size: 0.7rem; }
     </style>
 </head>
@@ -74,7 +75,7 @@
     <div id="studentPanel">
         <div class="tabs" id="deptTabs"></div>
         <div class="toolbar">
-            <button id="refreshBtn" class="small">🔄 重新整理</button>
+            <button id="refreshBtn" class="small">🔄 強制同步</button>
         </div>
         <div id="cardsContainer" class="cards-grid">載入中...</div>
     </div>
@@ -84,20 +85,23 @@
         <h3>🏆 加權總分排名（學生80% + 教師20%）</h3>
         <p style="margin: 8px 0;">💡 教師可直接修改「教師評分」欄位，自動儲存並更新排名。</p>
         <div id="rankTableContainer"></div>
-        <button id="exportCsvBtn" class="small" style="margin-top: 16px;">📎 匯出 CSV 報表</button>
+        <div class="toolbar" style="margin-top: 16px; justify-content: flex-end;">
+            <button id="exportCsvBtn" class="small">📎 匯出 CSV 報表</button>
+            <button id="clearAllDataBtn" class="small btn-danger">🗑️ 清除所有評分資料（謹慎）</button>
+        </div>
     </div>
     <div class="footnote">
         ✅ 書面報告 = 問題定義(1)+IPO(2)+技術實作(2) | 上台報告 = AI創新(1)+成果展示(3)+問答(1)<br>
-        ✅ 所有評分即時雲端同步，不同設備皆可同時使用。每人每組僅可評分一次。
+        ✅ 所有評分即時雲端同步，不同設備皆可同時使用。每人每組僅可評分一次。<br>
+        ✅ 「強制同步」按鈕會從雲端重新載入最新資料；「清除所有評分資料」會刪除雲端全部記錄（僅教師操作）。
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "firebase/app";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
-    import { getFirestore, collection, doc, setDoc, onSnapshot, query, where, getDocs } from "firebase/firestore";
+    import { getFirestore, collection, doc, setDoc, onSnapshot, getDocs, deleteDoc } from "firebase/firestore";
 
-    // Firebase 設定（使用者提供的）
     const firebaseConfig = {
         apiKey: "AIzaSyC6sUgSVvcR6KxAVjrmQkY5_94wmKpL3PE",
         authDomain: "peer-review-live.firebaseapp.com",
@@ -139,12 +143,9 @@
     let authReady = false;
     let ratingsUnsubscribe = null;
     let teacherScoresUnsubscribe = null;
+    let allRatings = [];
+    let teacherScores = new Map();
 
-    // 暫存 Firestore 資料
-    let allRatings = [];       // 每筆 { userId, dept, groupId, totalScore }
-    let teacherScores = new Map(); // key: "dept_groupId" -> score
-
-    // DOM 元素
     const studentPanel = document.getElementById("studentPanel");
     const dashboardPanel = document.getElementById("dashboardPanel");
     const deptTabsDiv = document.getElementById("deptTabs");
@@ -153,12 +154,10 @@
     const loginStatusSpan = document.getElementById("loginStatus");
     const currentStudentDisplay = document.getElementById("currentStudentDisplay");
 
-    // 輔助函數
     function escapeHtml(str) {
         return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m]));
     }
 
-    // 計算某組平均分與人數
     function getGroupStats(dept, groupId) {
         const filtered = allRatings.filter(r => r.dept === dept && r.groupId === groupId);
         if (filtered.length === 0) return { avg: null, count: 0 };
@@ -166,13 +165,11 @@
         return { avg: sum / filtered.length, count: filtered.length };
     }
 
-    // 檢查目前學生是否已對該組評分
     function hasUserVoted(dept, groupId) {
         if (!currentUser) return false;
         return allRatings.some(r => r.userId === currentUser.uid && r.dept === dept && r.groupId === groupId);
     }
 
-    // 提交評分到 Firestore
     async function submitScore(dept, groupId, written, oral, bonus) {
         if (!authReady || !currentUser) {
             alert("系統尚未連線，請稍後再試。");
@@ -204,7 +201,6 @@
         }
     }
 
-    // 儲存教師評分
     async function saveTeacherScore(dept, groupId, score) {
         const docId = `teacher_${dept}_${groupId}`;
         try {
@@ -219,9 +215,15 @@
         }
     }
 
-    // 監聽 Firestore 資料變化
-    function listenFirestore() {
+    // 強制重新訂閱（清除舊監聽，重新建立）
+    function forceRefresh() {
         if (ratingsUnsubscribe) ratingsUnsubscribe();
+        if (teacherScoresUnsubscribe) teacherScoresUnsubscribe();
+        listenFirestore();
+        alert("已從雲端重新同步最新資料。");
+    }
+
+    function listenFirestore() {
         ratingsUnsubscribe = onSnapshot(collection(db, "ratings"), (snapshot) => {
             allRatings = [];
             snapshot.forEach(doc => {
@@ -233,12 +235,10 @@
                     totalScore: data.totalScore
                 });
             });
-            // 更新 UI
             if (studentPanel.style.display !== "none") renderStudentCards();
             if (dashboardPanel.style.display !== "none") renderDashboard();
         });
 
-        if (teacherScoresUnsubscribe) teacherScoresUnsubscribe();
         teacherScoresUnsubscribe = onSnapshot(collection(db, "teacherScores"), (snapshot) => {
             teacherScores.clear();
             snapshot.forEach(doc => {
@@ -249,7 +249,28 @@
         });
     }
 
-    // 科系頁籤
+    // 清除所有評分資料（刪除整個集合）
+    async function clearAllData() {
+        if (!confirm("⚠️ 警告：此操作會永久刪除雲端上所有學生的評分及教師評分，無法復原！確定要清除嗎？")) return;
+        try {
+            // 刪除 ratings 集合所有文件
+            const ratingsSnap = await getDocs(collection(db, "ratings"));
+            for (const docSnap of ratingsSnap.docs) {
+                await deleteDoc(doc(db, "ratings", docSnap.id));
+            }
+            // 刪除 teacherScores 集合所有文件
+            const teacherSnap = await getDocs(collection(db, "teacherScores"));
+            for (const docSnap of teacherSnap.docs) {
+                await deleteDoc(doc(db, "teacherScores", docSnap.id));
+            }
+            alert("✅ 所有評分資料已清除！");
+            // 無需額外操作，監聽器會自動更新空資料
+        } catch (err) {
+            console.error("清除失敗", err);
+            alert("清除失敗：" + err.message);
+        }
+    }
+
     function renderDeptTabs() {
         const depts = [...new Map(groupsData.map(g => [g.dept, g.dept])).keys()];
         deptTabsDiv.innerHTML = depts.map(d => `<button class="tab ${d === currentDept ? 'active' : ''}" data-dept="${d}">${d === '環工1A' ? '🌍' : d === '植醫1A' ? '🌱' : '🐟'} ${d}</button>`).join("");
@@ -262,7 +283,6 @@
         });
     }
 
-    // 渲染學生卡片
     function renderStudentCards() {
         const groups = groupsData.filter(g => g.dept === currentDept);
         cardsContainer.innerHTML = groups.map(g => {
@@ -286,7 +306,6 @@
                 </div>
             `;
         }).join("");
-        // 綁定按鈕事件
         document.querySelectorAll(".btn-submit:not([disabled])").forEach(btn => {
             btn.addEventListener("click", async (e) => {
                 const card = btn.closest(".card");
@@ -302,7 +321,6 @@
         });
     }
 
-    // 教師儀表板
     function renderDashboard() {
         let rows = [];
         for (let g of groupsData) {
@@ -351,11 +369,10 @@
                         <td><input type="number" step="0.5" min="0" max="10" class="teacher-score-input" data-dept="${r.dept}" data-id="${r.id}" value="${r.teacherScore !== "" ? r.teacherScore : ''}" placeholder="0~10"></td>
                         <td><strong>${r.finalScore.toFixed(2)}</strong></td>
                         <td>${r.count}</td>
-                      </tr>`;
+                     </tr>`;
         });
-        html += `</tbody>有些人`;
+        html += `</tbody></table>`;
         rankContainer.innerHTML = html;
-        // 綁定教師評分變更
         document.querySelectorAll(".teacher-score-input").forEach(inp => {
             inp.addEventListener("change", (e) => {
                 const dept = inp.getAttribute("data-dept");
@@ -369,9 +386,7 @@
         });
     }
 
-    // 匯出 CSV
     async function exportCSV() {
-        // 確保取得最新資料（可再從 Firestore 讀取一次，但直接使用 allRatings 即可）
         let rows = [["科系","組別","主題","學生平均分","教師評分","加權總分","評分人數"]];
         for (let g of groupsData) {
             const stats = getGroupStats(g.dept, g.id);
@@ -397,7 +412,6 @@
         URL.revokeObjectURL(link.href);
     }
 
-    // 設定學生顯示 ID
     function setStudentId() {
         let newId = document.getElementById("studentIdInput").value.trim();
         if (newId === "") { alert("請輸入學號"); return; }
@@ -406,7 +420,6 @@
         currentStudentDisplay.innerText = `學生：${currentStudentId}`;
     }
 
-    // 角色切換
     function switchRole(role) {
         if (role === 'student') {
             studentPanel.style.display = "block";
@@ -423,7 +436,6 @@
         }
     }
 
-    // 初始化 Firebase 登入
     function initAuth() {
         loginStatusSpan.innerText = "⏳ 連線中...";
         signInAnonymously(auth).catch(err => {
@@ -445,7 +457,6 @@
         });
     }
 
-    // 頁面初始化
     function initUI() {
         if (currentStudentId) {
             document.getElementById("studentIdInput").value = currentStudentId;
@@ -454,8 +465,9 @@
         document.getElementById("setStudentIdBtn").addEventListener("click", setStudentId);
         document.getElementById("studentRoleBtn").addEventListener("click", () => switchRole("student"));
         document.getElementById("dashboardRoleBtn").addEventListener("click", () => switchRole("teacher"));
-        document.getElementById("refreshBtn").addEventListener("click", () => renderStudentCards());
+        document.getElementById("refreshBtn").addEventListener("click", forceRefresh);
         document.getElementById("exportCsvBtn").addEventListener("click", exportCSV);
+        document.getElementById("clearAllDataBtn").addEventListener("click", clearAllData);
         switchRole("student");
     }
 
