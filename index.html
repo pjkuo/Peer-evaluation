@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>即時互評系統｜Firebase 跨設備版（已修正按鈕功能）</title>
+    <title>即時互評系統｜教師儀表板密碼保護</title>
     <!-- Firebase 9+ SDK -->
     <script type="importmap">
         {
@@ -93,7 +93,8 @@
     <div class="footnote">
         ✅ 書面報告 = 問題定義(1)+IPO(2)+技術實作(2) | 上台報告 = AI創新(1)+成果展示(3)+問答(1)<br>
         ✅ 所有評分即時雲端同步，不同設備皆可同時使用。每人每組僅可評分一次。<br>
-        ✅ 「強制同步」按鈕會從雲端重新載入最新資料；「清除所有評分資料」會刪除雲端全部記錄（僅教師操作）。
+        ✅ 「強制同步」按鈕會從雲端重新載入最新資料；「清除所有評分資料」會刪除雲端全部記錄（僅教師操作）。<br>
+        ✅ 教師儀表板受密碼保護（密碼：1728）。
     </div>
 </div>
 
@@ -153,6 +154,9 @@
     const rankContainer = document.getElementById("rankTableContainer");
     const loginStatusSpan = document.getElementById("loginStatus");
     const currentStudentDisplay = document.getElementById("currentStudentDisplay");
+
+    // 密碼設定
+    const TEACHER_PASSWORD = "1728";
 
     function escapeHtml(str) {
         return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m]));
@@ -215,7 +219,6 @@
         }
     }
 
-    // 強制重新訂閱（清除舊監聽，重新建立）
     function forceRefresh() {
         if (ratingsUnsubscribe) ratingsUnsubscribe();
         if (teacherScoresUnsubscribe) teacherScoresUnsubscribe();
@@ -249,22 +252,18 @@
         });
     }
 
-    // 清除所有評分資料（刪除整個集合）
     async function clearAllData() {
         if (!confirm("⚠️ 警告：此操作會永久刪除雲端上所有學生的評分及教師評分，無法復原！確定要清除嗎？")) return;
         try {
-            // 刪除 ratings 集合所有文件
             const ratingsSnap = await getDocs(collection(db, "ratings"));
             for (const docSnap of ratingsSnap.docs) {
                 await deleteDoc(doc(db, "ratings", docSnap.id));
             }
-            // 刪除 teacherScores 集合所有文件
             const teacherSnap = await getDocs(collection(db, "teacherScores"));
             for (const docSnap of teacherSnap.docs) {
                 await deleteDoc(doc(db, "teacherScores", docSnap.id));
             }
             alert("✅ 所有評分資料已清除！");
-            // 無需額外操作，監聽器會自動更新空資料
         } catch (err) {
             console.error("清除失敗", err);
             alert("清除失敗：" + err.message);
@@ -369,9 +368,9 @@
                         <td><input type="number" step="0.5" min="0" max="10" class="teacher-score-input" data-dept="${r.dept}" data-id="${r.id}" value="${r.teacherScore !== "" ? r.teacherScore : ''}" placeholder="0~10"></td>
                         <td><strong>${r.finalScore.toFixed(2)}</strong></td>
                         <td>${r.count}</td>
-                     </tr>`;
+                      </tr>`;
         });
-        html += `</tbody></table>`;
+        html += `</tbody><table>`;
         rankContainer.innerHTML = html;
         document.querySelectorAll(".teacher-score-input").forEach(inp => {
             inp.addEventListener("change", (e) => {
@@ -420,20 +419,26 @@
         currentStudentDisplay.innerText = `學生：${currentStudentId}`;
     }
 
-    function switchRole(role) {
-        if (role === 'student') {
-            studentPanel.style.display = "block";
-            dashboardPanel.style.display = "none";
-            document.getElementById("studentRoleBtn").classList.add("active");
-            document.getElementById("dashboardRoleBtn").classList.remove("active");
-            renderStudentCards();
-        } else {
+    // 密碼驗證切換至教師儀表板
+    function switchToTeacher() {
+        const pwd = prompt("請輸入教師密碼：");
+        if (pwd === TEACHER_PASSWORD) {
             studentPanel.style.display = "none";
             dashboardPanel.style.display = "block";
-            renderDashboard();
-            document.getElementById("dashboardRoleBtn").classList.add("active");
             document.getElementById("studentRoleBtn").classList.remove("active");
+            document.getElementById("dashboardRoleBtn").classList.add("active");
+            renderDashboard();
+        } else {
+            alert("密碼錯誤，無法進入教師儀表板。");
         }
+    }
+
+    function switchToStudent() {
+        studentPanel.style.display = "block";
+        dashboardPanel.style.display = "none";
+        document.getElementById("dashboardRoleBtn").classList.remove("active");
+        document.getElementById("studentRoleBtn").classList.add("active");
+        renderStudentCards();
     }
 
     function initAuth() {
@@ -463,12 +468,12 @@
             currentStudentDisplay.innerText = `學生：${currentStudentId}`;
         }
         document.getElementById("setStudentIdBtn").addEventListener("click", setStudentId);
-        document.getElementById("studentRoleBtn").addEventListener("click", () => switchRole("student"));
-        document.getElementById("dashboardRoleBtn").addEventListener("click", () => switchRole("teacher"));
+        document.getElementById("studentRoleBtn").addEventListener("click", switchToStudent);
+        document.getElementById("dashboardRoleBtn").addEventListener("click", switchToTeacher);
         document.getElementById("refreshBtn").addEventListener("click", forceRefresh);
         document.getElementById("exportCsvBtn").addEventListener("click", exportCSV);
         document.getElementById("clearAllDataBtn").addEventListener("click", clearAllData);
-        switchRole("student");
+        switchToStudent();  // 預設學生區
     }
 
     initAuth();
