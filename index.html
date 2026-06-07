@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>匿名互評記分板｜純前端版</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f0f7ff;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #1e6f5c, #289672);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .sub {
+            color: #2c5a6e;
+            border-left: 4px solid #289672;
+            padding-left: 16px;
+            margin: 8px 0 20px;
+            font-size: 0.9rem;
+        }
+        .tab-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 28px;
+            border-bottom: 2px solid #cde0d9;
+            padding-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            background: transparent;
+            border: none;
+            padding: 8px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 40px;
+            transition: 0.2s;
+            color: #3a6b5e;
+        }
+        .tab.active {
+            background: #1e6f5c;
+            color: white;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            background: white;
+            border: 1px solid #cbdde6;
+            padding: 6px 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .btn-export {
+            background: #1e6f5c;
+            color: white;
+            border: none;
+        }
+        .btn-reset {
+            background: #fff2f0;
+            color: #c23b22;
+            border-color: #ffc5b9;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 22px;
+        }
+        .card {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .card-header {
+            background: #f9fdfb;
+            padding: 14px 18px;
+            border-bottom: 1px solid #deece6;
+        }
+        .group-name {
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: #1e4a3b;
+        }
+        .group-topic {
+            font-size: 0.7rem;
+            background: #eef3f0;
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            margin-top: 6px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            background: #f5faf8;
+            padding: 8px 18px;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #e2efe9;
+        }
+        .avg {
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: #1e6f5c;
+        }
+        .avg small { font-size: 0.7rem; font-weight: normal; }
+        .rating-area {
+            padding: 16px 18px 18px;
+        }
+        .score-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .score-row label {
+            background: #eef2fa;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        input {
+            flex: 1;
+            padding: 6px 12px;
+            border-radius: 30px;
+            border: 1px solid #cddfd7;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .vote-btn {
+            width: 100%;
+            background: #289672;
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .vote-btn:disabled {
+            background: #bdd3cb;
+            cursor: not-allowed;
+        }
+        .rank-section {
+            margin-top: 40px;
+            background: white;
+            border-radius: 28px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .rank-section h3 {
+            margin-bottom: 16px;
+            color: #1e6f5c;
+        }
+        .rank-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .rank-table th, .rank-table td {
+            border: 1px solid #cde0d9;
+            padding: 8px 12px;
+            text-align: center;
+        }
+        .rank-table th {
+            background: #eef3f0;
+        }
+        .footnote {
+            text-align: center;
+            margin-top: 32px;
+            color: #6d8f82;
+            font-size: 0.7rem;
+        }
+        @media (max-width: 700px) {
+            .tab { padding: 6px 16px; font-size: 0.9rem; }
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📊 運算思維期末報告 · 匿名互評記分板</h1>
+    <div class="sub">⭐ 1～10分（可0.5分） • 不記名 • 每人每組限評一次 • 資料儲存於此瀏覽器</div>
+
+    <div class="tab-bar" id="tabBar">
+        <button class="tab" data-class="環工1A">🌍 環工1A</button>
+        <button class="tab" data-class="植醫1A">🌱 植醫1A</button>
+        <button class="tab" data-class="養殖1A">🐟 養殖1A</button>
+    </div>
+    <div class="toolbar">
+        <button id="refreshBtn">🔄 重新整理</button>
+        <button id="exportBtn" class="btn-export">📎 匯出統計報表 (CSV)</button>
+        <button id="resetAllBtn" class="btn-reset">🗑️ 清除所有評分資料</button>
+    </div>
+    <div id="groupsContainer" class="grid">載入中...</div>
+
+    <!-- 加總計分排名區域 -->
+    <div class="rank-section" id="rankSection">
+        <h3>🏆 各組總分與排名（依平均分排序）</h3>
+        <div id="rankTableContainer">計算中...</div>
+    </div>
+    <div class="footnote">
+        ✅ 評分後無法修改 • 所有資料僅存於本機 • 清除瀏覽器資料或點擊「清除所有評分資料」會重置
+    </div>
+</div>
+
+<script>
+    // ---------- 小組資料 (與之前相同) ----------
+    const groupsData = {
+        "環工1A": [
+            { seq:"1", name:"第1組", topic:"空氣污染檢測" },
+            { seq:"2", name:"第2組", topic:"空汙科技執法" },
+            { seq:"3", name:"第3組", topic:"廢棄物管理與循環經濟" },
+            { seq:"4", name:"第4組", topic:"室內環境空汙檢測模擬器" },
+            { seq:"5", name:"第5組", topic:"觀賞魚飼料殘留檢測助手" },
+            { seq:"6", name:"第6組", topic:"噪音汙染檢測" },
+            { seq:"7", name:"第7組", topic:"水質汙染檢測" },
+            { seq:"8", name:"第8組", topic:"月球真空環境分析系統" },
+            { seq:"9", name:"第9組", topic:"智慧垃圾分類回收辨識" },
+            { seq:"10", name:"第10組", topic:"應用AI優化垃圾焚化爐" }
+        ],
+        "植醫1A": [
+            { seq:"1", name:"第1組", topic:"智慧葉片健康度快篩" },
+            { seq:"2", name:"第2組", topic:"AI田間氣象預測" },
+            { seq:"3", name:"第3組", topic:"土壤酸鹼度檢測" },
+            { seq:"4", name:"第4組", topic:"植物病害辨識系統" },
+            { seq:"5", name:"第5組", topic:"AI精準用農藥" },
+            { seq:"6", name:"第6組", topic:"水源重金屬污染" },
+            { seq:"7", name:"第7組", topic:"利用AI進行樹木健康檢查" },
+            { seq:"8", name:"第8組", topic:"AI影像識別病蟲害" },
+            { seq:"9", name:"第9組", topic:"無人機在病蟲害防治的應用" },
+            { seq:"10", name:"第10組", topic:"蟲害報你知" },
+            { seq:"11", name:"第11組", topic:"AI自動選果" }
+        ],
+        "養殖1A": [
+            { seq:"1", name:"第1組", topic:"AI魚種影像辨識模擬系統" },
+            { seq:"2", name:"第2組", topic:"魚群行為辨識與異常警報模擬系統" },
+            { seq:"3", name:"第3組", topic:"溶氧檢測模擬系統" },
+            { seq:"4", name:"第4組", topic:"智慧飼料投餵系統" },
+            { seq:"5", name:"第5組", topic:"魚類體型測量模擬系統" },
+            { seq:"6", name:"第6組", topic:"AI水質鹽度監測system" },
+            { seq:"7", name:"第7組", topic:"池底排泄物與殘餌堆積監測系統" },
+            { seq:"8", name:"第8組", topic:"魚類攝食紀錄監控" },
+            { seq:"9", name:"第9組", topic:"魚類病蟲害辨識模擬系統" },
+            { seq:"10", name:"第10組", topic:"蝦群活動力監測" },
+            { seq:"11", name:"第11組", topic:"綠色生產線" },
+            { seq:"12", name:"第12組", topic:"水質pH檢測系統" },
+            { seq:"13", name:"第13組", topic:"魚類體型分類辨識系統" },
+            { seq:"14", name:"第14組", topic:"AI智慧殘餌量偵測系統" }
+        ]
+    };
+
+    // 全域資料結構
+    let allRatings = [];      // 儲存 { class, groupName, score, userId }
+    let currentUser = null;   // 隨機產生的使用者 ID
+    let currentClass = "環工1A";
+
+    // ---------- localStorage 操作 ----------
+    const STORAGE_RATINGS = "peer_ratings";
+    const STORAGE_USER_ID = "peer_user_id";
+
+    function loadRatings() {
+        const stored = localStorage.getItem(STORAGE_RATINGS);
+        if (stored) {
+            allRatings = JSON.parse(stored);
+        } else {
+            allRatings = [];
+        }
+    }
+
+    function saveRatings() {
+        localStorage.setItem(STORAGE_RATINGS, JSON.stringify(allRatings));
+    }
+
+    function getUserId() {
+        let uid = localStorage.getItem(STORAGE_USER_ID);
+        if (!uid) {
+            uid = "user_" + Math.random().toString(36).substr(2, 10);
+            localStorage.setItem(STORAGE_USER_ID, uid);
+        }
+        return uid;
+    }
+
+    // 取得某組的統計 (平均, 人數)
+    function getStats(className, groupName) {
+        const filtered = allRatings.filter(r => r.class === className && r.groupName === groupName);
+        const scores = filtered.map(r => r.score);
+        if (scores.length === 0) return { avg: 0, count: 0 };
+        const sum = scores.reduce((a,b) => a + b, 0);
+        const avg = sum / scores.length;
+        return { avg: Math.round(avg * 10) / 10, count: scores.length };
+    }
+
+    // 檢查當前使用者是否已對某組評分
+    function hasUserVoted(groupName, className) {
+        if (!currentUser) return false;
+        return allRatings.some(r => r.class === className && r.groupName === groupName && r.userId === currentUser);
+    }
+
+    // 提交評分
+    function submitScore(groupName, className, scoreValue) {
+        const score = parseFloat(scoreValue);
+        if (isNaN(score) || score < 1 || score > 10) {
+            alert("請輸入 1～10 的數字 (可為0.5倍數)");
+            return false;
+        }
+        if (hasUserVoted(groupName, className)) {
+            alert("你已經對這個小組評過分了！每人每組限一次。");
+            return false;
+        }
+        allRatings.push({
+            class: className,
+            groupName: groupName,
+            score: score,
+            userId: currentUser,
+            timestamp: new Date().toISOString()
+        });
+        saveRatings();
+        alert("✅ 評分已送出！");
+        renderGroups();          // 重新渲染當前科系卡片
+        renderRankingTable();    // 更新排名表格
+        return true;
+    }
+
+    // 清除所有評分資料
+    function resetAllScores() {
+        if (confirm("⚠️ 確定要清除所有小組的評分資料嗎？此操作無法復原。")) {
+            allRatings = [];
+            saveRatings();
+            renderGroups();
+            renderRankingTable();
+            alert("已清除所有評分資料。");
+        }
+    }
+
+    // 渲染目前科系的所有卡片
+    function renderGroups() {
+        const container = document.getElementById("groupsContainer");
+        const groups = groupsData[currentClass];
+        if (!groups || groups.length === 0) {
+            container.innerHTML = "<div>該科系尚無小組資料</div>";
+            return;
+        }
+        container.innerHTML = "";
+        groups.forEach(group => {
+            const stats = getStats(currentClass, group.name);
+            const voted = hasUserVoted(group.name, currentClass);
+            const card = document.createElement("div");
+            card.className = "card";
+            const inputId = `score_${group.name.replace(/\s/g,'')}_${group.seq}`;
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="group-name">${escapeHtml(group.name)}</div>
+                    <div class="group-topic">${escapeHtml(group.topic)}</div>
+                </div>
+                <div class="stats">
+                    <span>📊 評分人數: ${stats.count}</span>
+                    <span class="avg">${stats.avg} <small>/10</small></span>
+                </div>
+                <div class="rating-area">
+                    <div class="score-row">
+                        <label>🎯 你的評分</label>
+                        <input type="number" id="${inputId}" min="1" max="10" step="0.5" value="8.0">
+                    </div>
+                    <button class="vote-btn" data-group="${group.name}" data-class="${currentClass}" 
+                        data-input-id="${inputId}" ${voted ? 'disabled' : ''}>
+                        ${voted ? '✓ 已評分' : '✍️ 提交評分'}
+                    </button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+        // 綁定按鈕事件
+        document.querySelectorAll(".vote-btn").forEach(btn => {
+            if (btn.disabled) return;
+            btn.addEventListener("click", (e) => {
+                const groupName = btn.getAttribute("data-group");
+                const className = btn.getAttribute("data-class");
+                const inputId = btn.getAttribute("data-input-id");
+                const inputElem = document.getElementById(inputId);
+                const scoreVal = inputElem ? inputElem.value : "8";
+                submitScore(groupName, className, scoreVal);
+            });
+        });
+    }
+
+    // 渲染所有科系的總分排名表格（加總計分、平均分、排序）
+    function renderRankingTable() {
+        const container = document.getElementById("rankTableContainer");
+        // 收集所有組別的統計
+        let allGroupsStats = [];
+        for (const [className, groups] of Object.entries(groupsData)) {
+            for (const group of groups) {
+                const stats = getStats(className, group.name);
+                allGroupsStats.push({
+                    className: className,
+                    groupName: group.name,
+                    topic: group.topic,
+                    avg: stats.avg,
+                    count: stats.count,
+                    totalScore: stats.avg * stats.count   // 總分 = 平均 * 人數
+                });
+            }
+        }
+        // 依平均分數排序 (從高到低)
+        allGroupsStats.sort((a, b) => b.avg - a.avg);
+        if (allGroupsStats.length === 0) {
+            container.innerHTML = "<p>尚無評分資料</p>";
+            return;
+        }
+        const table = document.createElement("table");
+        table.className = "rank-table";
+        table.innerHTML = `
+            <thead>
+                <tr><th>科系</th><th>組別</th><th>主題</th><th>評分人數</th><th>平均分數</th><th>總分</th></tr>
+            </thead>
+            <tbody>
+                ${allGroupsStats.map(g => `
+                    <tr>
+                        <td>${escapeHtml(g.className)}</td>
+                        <td>${escapeHtml(g.groupName)}</td>
+                        <td>${escapeHtml(g.topic)}</td>
+                        <td>${g.count}</td>
+                        <td>${g.avg}</td>
+                        <td>${Math.round(g.totalScore * 10) / 10}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        `;
+        container.innerHTML = "";
+        container.appendChild(table);
+    }
+
+    // 匯出 CSV 報表
+    function exportCSV() {
+        const rows = [["科系","組別","主題","評分人數","平均分數","總分","所有分數(分號分隔)"]];
+        for (const [className, groups] of Object.entries(groupsData)) {
+            for (const group of groups) {
+                const stats = getStats(className, group.name);
+                const scores = allRatings
+                    .filter(r => r.class === className && r.groupName === group.name)
+                    .map(r => r.score)
+                    .join("; ");
+                const totalScore = stats.avg * stats.count;
+                rows.push([className, group.name, group.topic, stats.count, stats.avg, totalScore, scores]);
+            }
+        }
+        const csvContent = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute("download", "peer_review_report.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+    }
+
+    // 切換科系
+    function switchClass(className) {
+        currentClass = className;
+        document.querySelectorAll(".tab").forEach(tab => {
+            if (tab.getAttribute("data-class") === className) tab.classList.add("active");
+            else tab.classList.remove("active");
+        });
+        renderGroups();
+    }
+
+    // 初始化
+    function init() {
+        currentUser = getUserId();
+        loadRatings();
+        // 綁定 UI 事件
+        document.querySelectorAll(".tab").forEach(tab => {
+            tab.addEventListener("click", () => switchClass(tab.getAttribute("data-class")));
+        });
+        document.getElementById("refreshBtn").addEventListener("click", () => {
+            renderGroups();
+            renderRankingTable();
+        });
+        document.getElementById("exportBtn").addEventListener("click", exportCSV);
+        document.getElementById("resetAllBtn").addEventListener("click", resetAllScores);
+        switchClass("環工1A");
+        renderRankingTable();
+    }
+
+    init();
+</script>
+</body>
+</html>
