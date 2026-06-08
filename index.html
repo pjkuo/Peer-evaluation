@@ -120,8 +120,8 @@ table.tbl tr.clickable:hover{background:#f0f7f2;}
 
   <!-- 身分列 -->
   <div class="bar">
-    <label>🔑 你的學號：</label>
-    <input type="text" id="studentIdInput" placeholder="請輸入學號（須在本學期名單內才能評分）">
+    <label>🔑 你的學號（<span style="color:var(--coral);">英文字大寫</span>）：</label>
+    <input type="text" id="studentIdInput" placeholder="例：B11431005（英文字母請大寫，須在名單內）" style="text-transform:uppercase;">
     <button id="setStudentIdBtn" class="btn btn-primary">設定學號</button>
     <span id="identityChip" class="chip">尚未設定</span>
   </div>
@@ -594,7 +594,7 @@ function permHint(err){
 
 /* ====== 身分／白名單 ====== */
 function applyIdentity(rawId, silent){
-  const sid = sanitizeId(rawId);
+  const sid = sanitizeId(String(rawId).trim().toUpperCase());
   const info = rosterMap.get(sid);
   if(!info){
     if(!silent) alert("❌ 此學號不在本學期名單內,無法評分。\n請確認學號是否正確,或聯絡老師。");
@@ -1026,6 +1026,10 @@ function initUI(){
   renderDeptTabs();
   $("setStudentIdBtn").addEventListener("click",setStudentId);
   $("studentIdInput").addEventListener("keydown",e=>{if(e.key==="Enter")setStudentId();});
+  $("studentIdInput").addEventListener("input",e=>{
+    const p=e.target.selectionStart; e.target.value=e.target.value.toUpperCase();
+    try{e.target.setSelectionRange(p,p);}catch(_){}
+  });
   $("studentRoleBtn").addEventListener("click",switchToStudent);
   $("dashboardRoleBtn").addEventListener("click",switchToTeacher);
   $("refreshBtn").addEventListener("click",forceRefresh);
